@@ -1,0 +1,20 @@
+MAXSIZE 3
+LAPSE Gojo
+LAPSE Sukuna
+LAPSE aaa
+LAPSE ItadoriYuji
+LAPSE MegumiFushiguro
+HAND
+LAPSE KugisakiNobara
+LAPSE NanamiKento
+KOKUSEN
+HAND
+LIMITLESS 3
+LAPSE Kenjaku
+LAPSE Mahoraga
+LAPSE ZenninNaoya
+KOKUSEN
+LIMITLESS 4
+KEITEIKEN 3
+CLEAVE 2
+HAND
