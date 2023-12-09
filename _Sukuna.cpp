@@ -43,7 +43,7 @@ public:
         stack<customer*> st;
         while(num--&&size){
             st.push(this->popBack());
-            cout << ID <<'-'<<st.top()->result<<'-'<<st.top()->name<<"\n";
+            cout << ID <<'-'<<st.top()->result<<"\n";
         }
         while(!st.empty()){
             customer *tmp = st.top();
@@ -123,10 +123,11 @@ public:
         ++changeCnt;
         if(AREA[pos]->add(cus)){
             swapNode(pos, size);
+            pos = size;
             ++size;
-            heapUp(mp[ID]);
+            heapUp(pos);
         }
-        heapDown(mp[ID]);
+        heapDown(pos);
     }
     void remove(int num){
         num = min(num, this->size);
@@ -137,6 +138,7 @@ public:
         string removedCustomer{};
         sort(v.begin(), v.end(), comp3);
         for(int i=0;i<num&&0<size;++i){
+            if(size==0) break;
             for(int j=0;j<num;++j){
                 if(v[i]->size==0) break;
                 customer* tmp = v[i]->popFront();
@@ -148,14 +150,15 @@ public:
             ++changeCnt;
             if(v[i]->size==0){
                 --size;
-                swap(pos, size);
-                heapDown(mp[pos]);
-                heapUp(mp[pos]);
+                if(pos >= size) continue;
+                swapNode(pos, size);
+                if(pos > 0 && *AREA[(pos-1)/2] > *AREA[pos]) heapUp(pos);
+                else heapDown(pos);
                 // cout << AREA[size]->ID <<" "<<mp[AREA[size]->ID] <<endl;
                 // cout << AREA[pos]->ID<<" "<<mp[AREA[pos]->ID] <<endl;
             }
             else{
-                heapDown(pos);
+                heapUp(pos);
             }
         }
         cout << removedCustomer;
@@ -188,24 +191,3 @@ bool comp3(heapNode* a, heapNode* b){
     if(a->size == b->size) return a->lastChange < b->lastChange;
     return a->size < b->size;
 }
-
-// int main(){
-//     Sukuna* S = new Sukuna();
-//     vector<customer*> v;
-//     v.push_back(new customer("Kenjaku"));
-//     v.push_back(new customer("Jogo"));
-//     v.push_back(new customer("Hanami"));
-//     v.push_back(new customer("Mahoraga"));
-//     v.push_back(new customer("ZenninNaoya"));
-//     v.push_back(new customer("Mahito"));
-//     v.push_back(new customer("Uraume"));
-//     v.push_back(new customer("OgiZennin"));
-//     v.push_back(new customer("RyomenSukuna"));
-//     for(int i=0;i<v.size();++i){
-//         S->LAPSE(v[i]); 
-//     }
-//     S->restaurant.printHeap();
-//     S->KEITEIKEN(11); 
-//     S->CLEAVE(7);
-//     delete S;
-// }

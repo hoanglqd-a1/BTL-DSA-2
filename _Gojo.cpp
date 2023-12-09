@@ -23,13 +23,12 @@ public:
         ++nodeCount;
         if(!root){
             root = new Node(cus);
-            cout << root->cus->name <<endl;
             return;
         }
         Node**p = &root;
         while(*p!=nullptr){
-            if((*p)->cus->result > cus->result) {p = &(*p)->left; cout << "left" <<endl;}
-            else {cout << "right" <<endl; p = &(*p)->right;}
+            if((*p)->cus->result > cus->result) {p = &(*p)->left;}
+            else {p = &(*p)->right;}
         }
         *p = new Node(cus);
     }
@@ -139,39 +138,4 @@ public:
         table[ID-1].printInorder(table[ID-1].root);
     }
 };
-
-
-// int main(){
-//     customer *c6 = new customer("ItadoriYuji");
-//     customer *c2 = new customer("MegumiFushiguro");
-//     customer *c3 = new customer("KugisakiNobara");
-//     customer *c4 = new customer("NanamiKento");
-//     customer *c1 = new customer("ZenninMaki");
-//     customer *c5 = new customer("YutaOkkotsu");
-//     customer *c7 = new customer("GetoSuguru");
-//     customer *c8 = new customer("HakariKinji");
-//     customer *c9 = new customer("YukiTsukumo");
-//     Gojo G;
-//     c1->printCustomer();
-//     G.LAPSE(c1);
-//     c2->printCustomer();
-//     G.LAPSE(c2);
-//     c3->printCustomer();
-//     G.LAPSE(c3);
-//     c4->printCustomer();
-//     G.LAPSE(c4);
-//     c5->printCustomer();
-//     G.LAPSE(c5);
-//     c6->printCustomer();
-//     G.LAPSE(c6);
-//     c7->printCustomer();
-//     G.LAPSE(c7);
-//     c8->printCustomer();
-//     G.LAPSE(c8);
-//     c9->printCustomer();
-//     G.LAPSE(c9);
-//     G.LIMITLESS(0);
-//     G.KOKUSEN();
-//     G.LIMITLESS(0);
-// }
 

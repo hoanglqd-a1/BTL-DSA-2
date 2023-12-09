@@ -64,7 +64,11 @@ public:
     bool isLeaf() {return false;}
     int getWeight() {return wgt;}
     int getHeight() {return height;}
-    void updateHeight(){height = max(left->getHeight(), right->getHeight()) + 1;}
+    void updateHeight(){
+        int l = (left) ? left->getHeight() : 0;
+        int r = (left) ? right->getHeight(): 0;
+        height = max(l, r) + 1;
+    }
     int balanceValue() {return left->getHeight() - right->getHeight();}
     char getValue() {return '!';}
 };
@@ -205,9 +209,7 @@ public:
         target += "\n";
         recursiveUpdateHand(target, t->right);
     }
-};
-//Sukuna and helper classes
-
+};//Sukuna and helper classes
 class heapNode{
 public:
     deque<customer*> LIST;
@@ -247,7 +249,7 @@ public:
         stack<customer*> st;
         while(num--&&size){
             st.push(this->popBack());
-            cout << ID <<'-'<<st.top()->result<<'-'<<st.top()->name<<"\n";
+            cout << ID <<'-'<<st.top()->result<<"\n";
         }
         while(!st.empty()){
             customer *tmp = st.top();
@@ -268,6 +270,14 @@ public:
     int size=0, changeCnt = 0;
     unordered_map<int, int> mp;
 public:
+    void printHeap(){
+        cout << "printHeap: "<<endl;
+        cout << "heap size: " <<size <<endl;
+        for(int i=0;i<MAXSIZE;++i){
+            cout << "ID: "<<AREA[i]->ID<<" position: "<<mp[AREA[i]->ID]<<endl;
+            cout << "size: "<< AREA[i]->size <<endl;
+        }
+    }
     minHeap(){
         AREA = vector<heapNode*>(MAXSIZE);
         for(int position=0;position<MAXSIZE;++position) {
@@ -319,6 +329,7 @@ public:
         ++changeCnt;
         if(AREA[pos]->add(cus)){
             swapNode(pos, size);
+            pos = size;
             ++size;
             heapUp(pos);
         }
@@ -333,6 +344,7 @@ public:
         string removedCustomer{};
         sort(v.begin(), v.end(), comp3);
         for(int i=0;i<num&&0<size;++i){
+            if(size==0) break;
             for(int j=0;j<num;++j){
                 if(v[i]->size==0) break;
                 customer* tmp = v[i]->popFront();
@@ -344,12 +356,13 @@ public:
             ++changeCnt;
             if(v[i]->size==0){
                 --size;
+                if(pos >= size) continue;
                 swapNode(pos, size);
-                heapDown(pos);
-                heapUp(pos);
+                if(pos > 0 && *AREA[(pos-1)/2] > *AREA[pos]) heapUp(pos);
+                else heapDown(pos);
             }
             else{
-                heapDown(pos);
+                heapUp(pos);
             }
         }
         cout << removedCustomer;
@@ -518,10 +531,10 @@ public:
 // simulate
 void simulate(string filename){
     int line = 1;
+    Gojo *G;
+    Sukuna *S;
     ifstream ss(filename);
     string str, maxsize, name, num;
-	Gojo *G;
-	Sukuna *S;
     while(ss >> str){
         if(str == "MAXSIZE")
 		{
@@ -533,12 +546,12 @@ void simulate(string filename){
         else if(str == "LAPSE") 
         {
             ss >> name;
-			set<char> n;
-    		for(const auto& ch : name) n.insert(ch);
-    		if(n.size() < 3) continue;
-    		customer* cus = new customer(name);
-    		if(cus->result%2==0) G->LAPSE(cus);
-    		else S->LAPSE(cus);
+            set<char> n;
+            for(const auto& ch : name) n.insert(ch);
+            if(n.size() < 3) continue;
+            customer* cus = new customer(name);
+            if(cus->result%2==0) G->LAPSE(cus);
+            else S->LAPSE(cus);
     	}
     	else if(str == "KOKUSEN") 
     	{
@@ -549,12 +562,12 @@ void simulate(string filename){
             ss >> num;
     		G->LIMITLESS(stoi(num));
 		}
-    	else if(str == "KEITEIKEN")
+    	else if(str == "KEITEIKEN") // UNLIMITED_VOID
      	{   	
 			ss >> num;
             S->KEITEIKEN(stoi(num));
     	}
-    	else if(str == "CLEAVE") 
+    	else if(str == "CLEAVE") // DOMAIN_EXPANSION
     	{
 			ss >> num;
             S->CLEAVE(stoi(num));
@@ -566,8 +579,8 @@ void simulate(string filename){
         else throw "error" ;
 		++line;
     }
-	delete G;
-	delete S;
+    delete G;
+    delete S;
 }
 
 //Helper function

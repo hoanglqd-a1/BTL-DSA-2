@@ -33,7 +33,7 @@ public:
     int height = 0;
 public:
     LeafNode(pair<char, int>p) : val{p.first}, wgt{p.second} {}
-    ~LeafNode() {cout << "deleted leaves\n";}
+    ~LeafNode() {}
     bool isLeaf() {return true;}
     int getWeight() {return wgt;}
     int getHeight() {return height;}
@@ -61,7 +61,11 @@ public:
     bool isLeaf() {return false;}
     int getWeight() {return wgt;}
     int getHeight() {return height;}
-    void updateHeight(){height = max(left->getHeight(), right->getHeight()) + 1;}
+    void updateHeight(){
+        int l = (left) ? left->getHeight() : 0;
+        int r = (left) ? right->getHeight(): 0;
+        height = max(l, r) + 1;
+    }
     int balanceValue() {return left->getHeight() - right->getHeight();}
     char getValue() {return '!';}
 };
@@ -147,7 +151,7 @@ public:
         nthCustomer = CUSTOMERCOUNT;
         ++CUSTOMERCOUNT;
     }
-    ~customer(){delete Tname.root; cout << "delete: " <<name <<endl;}
+    ~customer(){delete Tname.root;}
     void buildAVLHuffTree(){
         unordered_map<char, int> freq, Cfreq;
         for(const auto& ch : name) freq[ch]++;
