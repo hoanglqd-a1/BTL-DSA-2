@@ -15,11 +15,12 @@ bool comp3(heapNode* a, heapNode* b);
 int binaryToInt(string& binary);
 
 // customer and helper classes ------------------
+
 class HuffNode{
 public:
     HuffNode *left=nullptr, *right=nullptr;
 public:
-	virtual ~HuffNode() {}
+    virtual ~HuffNode() {}
     virtual bool isLeaf() = 0;
     virtual int getWeight() = 0;
     virtual int getHeight() = 0;
@@ -100,7 +101,7 @@ public:
         tmp->updateHeight();
         return tmp;
     }
-    /*incompleted*/HuffNode* balance(HuffNode* p){
+    HuffNode* balance(HuffNode* p){
         for(int i=0;i<3;++i){
             if(p->balanceValue() < -1){
                 if(p->right->balanceValue() > 0){
@@ -206,6 +207,7 @@ public:
     }
 };
 //Sukuna and helper classes
+
 class heapNode{
 public:
     deque<customer*> LIST;
@@ -245,7 +247,7 @@ public:
         stack<customer*> st;
         while(num--&&size){
             st.push(this->popBack());
-            cout << ID <<'-'<<st.top()->result<<"\n";
+            cout << ID <<'-'<<st.top()->result<<'-'<<st.top()->name<<"\n";
         }
         while(!st.empty()){
             customer *tmp = st.top();
@@ -255,7 +257,7 @@ public:
         }
     }
     bool operator > (const heapNode& X){
-        if(this->size==X.size) return this->lastChange < X.lastChange;
+        if(this->size==X.size) return this->lastChange > X.lastChange;
         return this->size > X.size;
     }
 };
@@ -281,57 +283,46 @@ public:
     }
     void heapUp(int pos){
         if(pos < 0||pos>=size) throw "out of range";
-        heapNode* tmp = std::move(AREA[pos]);
-        while(pos){
+        while(pos > 0){
             int parent = (pos-1)/2;
-            if(*AREA[parent] > *tmp){
-                mp[AREA[parent]->ID] = pos;
-                AREA[pos] = std::move(AREA[parent]);
+            if(*AREA[parent] > *AREA[pos]){
+                swapNode(parent, pos);
                 pos = parent;
             }
             else break;
         }
-        mp[tmp->ID] = pos;
-        AREA[pos] = std::move(tmp);
     }
     void heapDown(int pos){
         if(pos>=size) throw "out of range";
-        heapNode* tmp = std::move(AREA[pos]);
-        while(pos*2+1<size){
-            int left = pos*2+1, right = left+1;
-            if(*AREA[left] > *tmp && (right==size||*AREA[right] > *tmp)) break;
-            if(right == size || AREA[left] > AREA[right]){
-                mp[AREA[left]->ID] = pos;
-                AREA[pos] = std::move(AREA[left]);
+        while(pos*2+1 < size){
+            int left = 2*pos+1, right = 2*pos+2;
+            if(*AREA[left] > *AREA[pos] && (right>=size||*AREA[right] > *AREA[pos])) break;
+            if(right >= size || *AREA[right] > *AREA[left]){
+                swapNode(left, pos);
                 pos = left;
             }
             else{
-                mp[AREA[right]->ID] = pos;
-                AREA[pos] = std::move(AREA[right]);
+                swapNode(right, pos);
                 pos = right;
             }
         }
-        mp[tmp->ID] = pos;
-        AREA[pos] = std::move(tmp);
     }
-    void moveUp(int pos){
-        int parent = (pos-1)/2;
-        swap(mp[AREA[parent]->ID], mp[AREA[pos]->ID]);
-        swap(AREA[parent], AREA[pos]);
+    void swapNode(int posA, int posB){
+        swap(mp[AREA[posA]->ID], mp[AREA[posB]->ID]);
+        swap(AREA[posA], AREA[posB]);
     }
     void add(customer* cus){
         if(!cus) throw "pass nullptr";
         int ID = cus->result % MAXSIZE + 1;
         int pos = mp[ID];
-        AREA[mp[ID]]->lastChange = changeCnt;
-        if(AREA[mp[ID]]->add(cus)){
-            swap(mp[ID], mp[AREA[size]->ID]);
-            swap(AREA[size], AREA[pos]);
-            ++size;
-            heapUp(mp[ID]);
-        }
-        heapDown(mp[ID]);
+        AREA[pos]->lastChange = changeCnt;
         ++changeCnt;
+        if(AREA[pos]->add(cus)){
+            swapNode(pos, size);
+            ++size;
+            heapUp(pos);
+        }
+        heapDown(pos);
     }
     void remove(int num){
         num = min(num, this->size);
@@ -345,25 +336,20 @@ public:
             for(int j=0;j<num;++j){
                 if(v[i]->size==0) break;
                 customer* tmp = v[i]->popFront();
-                removedCustomer += (to_string(tmp->result) + '-' + to_string(v[i]->ID) + "\n");
+                removedCustomer += (to_string(tmp->result) + '-' + to_string(v[i]->ID) + ' '+ tmp->name + "\n");
                 delete tmp;
             }
-            AREA[mp[v[i]->ID]]->lastChange = changeCnt;
+            int pos = mp[v[i]->ID];
+            AREA[pos]->lastChange = changeCnt;
             ++changeCnt;
             if(v[i]->size==0){
                 --size;
-                int pos = mp[v[i]->ID];
-                swap(mp[AREA[pos]->ID], mp[AREA[size]->ID]);
-                swap(AREA[pos], AREA[size]);
-                heapDown(mp[pos]);
-                heapUp(mp[pos]);
+                swapNode(pos, size);
+                heapDown(pos);
+                heapUp(pos);
             }
             else{
-                int j=i;
-                while(j > 0 && AREA[j]->size >= AREA[(j-1)/2]->size){
-                    moveUp(j);
-                    j = (j-1)/2;
-                }
+                heapDown(pos);
             }
         }
         cout << removedCustomer;

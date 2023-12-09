@@ -98,7 +98,7 @@ public:
         tmp->updateHeight();
         return tmp;
     }
-    /*incompleted*/HuffNode* balance(HuffNode* p){
+    HuffNode* balance(HuffNode* p){
         for(int i=0;i<3;++i){
             if(p->balanceValue() < -1){
                 if(p->right->balanceValue() > 0){
