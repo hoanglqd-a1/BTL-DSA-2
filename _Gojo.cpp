@@ -96,13 +96,13 @@ public:
         int size;
         return combinationCountHelper(COMBINATION, root, size);
     }
-    long long combinationCountHelper(vector<vector<int>>& COMBINATION, Node* p, int& size){
+    int combinationCountHelper(vector<vector<int>>& COMBINATION, Node* p, int& size){
         if(!p){
             size = 0;
-            return 1ll;
+            return 1;
         }
         int lsize, rsize;
-        long long countLeft = combinationCountHelper(COMBINATION, p->left, lsize), countRight = combinationCountHelper(COMBINATION, p->right, rsize);
+        int countLeft = combinationCountHelper(COMBINATION, p->left, lsize), countRight = combinationCountHelper(COMBINATION, p->right, rsize);
         size = lsize + rsize + 1;
         return (countLeft * countRight) % MAXSIZE * COMBINATION[rsize + lsize][lsize] % MAXSIZE;
     }
@@ -124,9 +124,10 @@ public:
 public:
     Gojo() {table = vector<BST>(MAXSIZE);}
     void LAPSE(customer* cus){
+        if(!cus) throw "pass nullptr" ;
         int ID = cus->result % MAXSIZE + 1;
-        // cout << "ID: " << ID <<endl;
         table[ID-1].add(cus);
+        // cout << "Gojo " << ID <<" "<<cus->result <<" "<<table[ID-1].nodeCount<<endl;
     }
     void KOKUSEN(){
         for(int i=0;i<MAXSIZE;++i){

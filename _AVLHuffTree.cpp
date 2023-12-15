@@ -21,9 +21,9 @@ public:
     virtual bool isLeaf() = 0;
     virtual int getWeight() = 0;
     virtual int getHeight() = 0;
-    virtual void updateHeight() = 0;
     virtual int balanceValue() = 0;
     virtual char getValue() = 0;
+    virtual void updateNode() = 0;
 };
 
 class LeafNode : public HuffNode{
@@ -36,8 +36,8 @@ public:
     ~LeafNode() {}
     bool isLeaf() {return true;}
     int getWeight() {return wgt;}
-    int getHeight() {return height;}
-    void updateHeight() {height = 0;}
+    int getHeight() {return 0;}
+    void updateNode() {height = 0;}
     int balanceValue() {return 0;}
     char getValue() {return val;}
 };
@@ -61,12 +61,18 @@ public:
     bool isLeaf() {return false;}
     int getWeight() {return wgt;}
     int getHeight() {return height;}
-    void updateHeight(){
-        int l = (left) ? left->getHeight() : 0;
-        int r = (left) ? right->getHeight(): 0;
+    void updateNode(){
+        int l = left->getHeight();
+        int r = right->getHeight();
         height = max(l, r) + 1;
+        // int lw = (left) ? left->getWeight() : 0;
+        // int rw = (right) ? right->getWeight() : 0;
+        // wgt = lw + rw;
     }
-    int balanceValue() {return left->getHeight() - right->getHeight();}
+    int balanceValue() {
+        if(!isLeaf()) return left->getHeight() - right->getHeight();
+        return 0;
+    }
     char getValue() {return '!';}
 };
 
@@ -79,7 +85,8 @@ public:
     AVLHuffTree(HuffNode* node, int nthTree) : root{node}, nthTree{nthTree} {}
     AVLHuffTree(AVLHuffTree l, AVLHuffTree r, int nthTree) : nthTree{nthTree} {
         root = new InnerNode(l.root, r.root);
-        root = balance(root);
+        int rotate = 3;
+        root = balance(root, rotate);
     }
     int weight() {return root->getWeight();}
     HuffNode* rotateLeft(HuffNode* p){
@@ -88,8 +95,8 @@ public:
         HuffNode* tmp = p->right;
         p->right = tmp->left;
         tmp->left = p;
-        p->updateHeight();
-        tmp->updateHeight();
+        p->updateNode();
+        tmp->updateNode();
         return tmp;
     }
     HuffNode* rotateRight(HuffNode* p) {
@@ -98,41 +105,49 @@ public:
         HuffNode* tmp = p->left;
         p->left = tmp->right;
         tmp->right = p;
-        p->updateHeight();
-        tmp->updateHeight();
+        p->updateNode();
+        tmp->updateNode();
         return tmp;
     }
-    HuffNode* balance(HuffNode* p){
-        for(int i=0;i<3;++i){
-            if(p->balanceValue() < -1){
-                if(p->right->balanceValue() > 0){
-                    p->right = rotateRight(p->right);
-                }
-                p = rotateLeft(p);
+    HuffNode* balance(HuffNode* p, int rotate){
+        if(p->isLeaf()) return p;
+        if(rotate==0) return p;
+        while(rotate){
+        if(p->balanceValue() < -1){
+            if(p->right->balanceValue() > 0){
+                p->right = rotateRight(p->right);
+                p->updateNode();
             }
-            else if(p->balanceValue() > 1){
-                if(p->left->balanceValue() < 0){
-                    p->left = rotateRight(p->left);
-                }
-                p = rotateRight(p);
-            }
-            else break;
+            p = rotateLeft(p);
+            --rotate;
         }
+        else if(p->balanceValue() > 1){
+            if(p->left->balanceValue() < 0){
+                p->left = rotateLeft(p->left);
+            }
+            p = rotateRight(p);
+            --rotate;
+        }
+        else break;
+        }
+        p->left = balance(p->left, rotate);
+        p->right = balance(p->right, rotate);
+        p->updateNode();
+        // if(p->balanceValue()<-1 || p->balanceValue() > 1) p = balance(p, rotate); // ????
         return p;
     }
-    void printTree(){
-        cout << "print Tree: " <<endl;
-        HuffNode* t = root;
-        stack<HuffNode*> st;
-        st.push(t);
-        while(!st.empty()){
-            HuffNode* t = st.top();
-            cout << t->getHeight() <<" ";
-            st.pop();
-            if(t->right) st.push(t->right);
-            if(t->left) st.push(t->left);
-            cout << t->getValue() <<" "<<t->getWeight()<<endl;
+    void printTree(const string& prefix, HuffNode* node, bool isLeft){
+        if(node){
+            cout << prefix;
+            cout << (isLeft ? "├──" : "└──");
+            if(node->isLeaf()) cout << node->getValue() <<endl;
+            else cout << node->getWeight() << endl;
+            printTree(prefix + (isLeft ? "│  " : "   "), node->left, true);
+            printTree(prefix + (isLeft ? "│  " : "   "), node->right, false);
         }
+    }
+    void printTree(){
+        printTree("", root, false);
     }
 };
 
@@ -162,7 +177,7 @@ public:
         sort(Cname.begin(), Cname.end(), comp2);
         priority_queue<AVLHuffTree, vector<AVLHuffTree>,  function<bool(AVLHuffTree, AVLHuffTree)>> pq(comp1);
         int s = (int)Cname.size(), nth=0;
-        for(nth;nth<s;++nth){
+        for(;nth<s;++nth){
             HuffNode* t = new LeafNode(Cname[nth]);
             pq.push(AVLHuffTree(t, nth));
         }
@@ -171,24 +186,35 @@ public:
             pq.pop();
             AVLHuffTree t2 = pq.top();
             pq.pop();
-            pq.push(AVLHuffTree(t1, t2, nth));
+            AVLHuffTree tmp(t1, t2, nth);
+            // cout << nth << endl;
+            // tmp.printTree();
+            pq.push(tmp);
             ++nth;
         }
         Tname = pq.top();
         unordered_map<char, string> mp;
-        string binary, binName;
-        if(!Tname.root->isLeaf()) createDictionary(mp, binary, Tname.root);
-        else mp[Tname.root->getValue()] = "0";
-        for(const auto& p: Cname){
-            for(int j=0;j<p.second;++j){
-                binName += mp[p.first];
-            }
+        string binary{}, binName, cname;
+        createDictionary(mp, binary, Tname.root);
+        // for(const auto& a : mp){
+        //     cout << a.first<<": "<<a.second << endl;
+        // }
+        for(const auto& ch : name){
+            cname += ceasarEncode(ch, freq[ch]);
         }
-        int t = (int)binName.size();
-        for(int i=0;i<10&&i<t;++i){
-            this->binaryResult+= binName[t-1-i];
+        for(const auto& ch : cname){
+            binName += mp[ch];
+        }
+        for(int i=0;i<10&&i<binName.size();++i){
+            binaryResult += binName[binName.size()-1-i]; 
         }
         result = binaryToInt(binaryResult);
+        // cout << result << endl;
+        // cout << "cname: " <<cname << endl;
+        // cout << binName<<" "<<binaryResult<<endl;
+        // for(const auto& a : Cname) cout << a.first<<" "<<a.second<<" -> ";
+        // cout << endl;
+        // Tname.printTree();
     }
     void createDictionary(unordered_map<char, string>& mp, string& binary, HuffNode* t){
         if(t->isLeaf()){
@@ -254,6 +280,7 @@ bool comp2(pair<char, int> a, pair<char, int> b){
     return a.first < b.first;
 }
 int binaryToInt(string& binary){
+    if(binary.size()==0) return 0;
     int s = (int)binary.size(), result = 0;
     for(int i=0;i<s;++i){
         result *= 2;
@@ -261,4 +288,3 @@ int binaryToInt(string& binary){
     }
     return result;
 }
-

@@ -14,8 +14,6 @@ bool comp2(pair<char, int> a, pair<char, int> b);
 bool comp3(heapNode* a, heapNode* b);
 int binaryToInt(string& binary);
 
-// customer and helper classes ------------------
-
 class HuffNode{
 public:
     HuffNode *left=nullptr, *right=nullptr;
@@ -24,9 +22,9 @@ public:
     virtual bool isLeaf() = 0;
     virtual int getWeight() = 0;
     virtual int getHeight() = 0;
-    virtual void updateHeight() = 0;
     virtual int balanceValue() = 0;
     virtual char getValue() = 0;
+    virtual void updateNode() = 0;
 };
 
 class LeafNode : public HuffNode{
@@ -39,8 +37,8 @@ public:
     ~LeafNode() {}
     bool isLeaf() {return true;}
     int getWeight() {return wgt;}
-    int getHeight() {return height;}
-    void updateHeight() {height = 0;}
+    int getHeight() {return 0;}
+    void updateNode() {height = 0;}
     int balanceValue() {return 0;}
     char getValue() {return val;}
 };
@@ -64,12 +62,15 @@ public:
     bool isLeaf() {return false;}
     int getWeight() {return wgt;}
     int getHeight() {return height;}
-    void updateHeight(){
-        int l = (left) ? left->getHeight() : 0;
-        int r = (left) ? right->getHeight(): 0;
+    void updateNode(){
+        int l = left->getHeight();
+        int r = right->getHeight();
         height = max(l, r) + 1;
     }
-    int balanceValue() {return left->getHeight() - right->getHeight();}
+    int balanceValue() {
+        if(!isLeaf()) return left->getHeight() - right->getHeight();
+        return 0;
+    }
     char getValue() {return '!';}
 };
 
@@ -82,7 +83,8 @@ public:
     AVLHuffTree(HuffNode* node, int nthTree) : root{node}, nthTree{nthTree} {}
     AVLHuffTree(AVLHuffTree l, AVLHuffTree r, int nthTree) : nthTree{nthTree} {
         root = new InnerNode(l.root, r.root);
-        root = balance(root);
+        int rotate = 3;
+        root = balance(root, rotate);
     }
     int weight() {return root->getWeight();}
     HuffNode* rotateLeft(HuffNode* p){
@@ -91,8 +93,8 @@ public:
         HuffNode* tmp = p->right;
         p->right = tmp->left;
         tmp->left = p;
-        p->updateHeight();
-        tmp->updateHeight();
+        p->updateNode();
+        tmp->updateNode();
         return tmp;
     }
     HuffNode* rotateRight(HuffNode* p) {
@@ -101,26 +103,35 @@ public:
         HuffNode* tmp = p->left;
         p->left = tmp->right;
         tmp->right = p;
-        p->updateHeight();
-        tmp->updateHeight();
+        p->updateNode();
+        tmp->updateNode();
         return tmp;
     }
-    HuffNode* balance(HuffNode* p){
-        for(int i=0;i<3;++i){
-            if(p->balanceValue() < -1){
-                if(p->right->balanceValue() > 0){
-                    p->right = rotateRight(p->right);
-                }
-                p = rotateLeft(p);
+    HuffNode* balance(HuffNode* p, int rotate){
+        if(p->isLeaf()) return p;
+        if(rotate==0) return p;
+        while(rotate){
+        if(p->balanceValue() < -1){
+            if(p->right->balanceValue() > 0){
+                p->right = rotateRight(p->right);
+                p->updateNode();
             }
-            else if(p->balanceValue() > 1){
-                if(p->left->balanceValue() < 0){
-                    p->left = rotateRight(p->left);
-                }
-                p = rotateRight(p);
-            }
-            else break;
+            p = rotateLeft(p);
+            --rotate;
         }
+        else if(p->balanceValue() > 1){
+            if(p->left->balanceValue() < 0){
+                p->left = rotateLeft(p->left);
+            }
+            p = rotateRight(p);
+            --rotate;
+        }
+        else break;
+        }
+        p->left = balance(p->left, rotate);
+        p->right = balance(p->right, rotate);
+        p->updateNode();
+        // if(p->balanceValue()<-1 || p->balanceValue() > 1) p = balance(p, rotate); // ????
         return p;
     }
 };
@@ -151,7 +162,7 @@ public:
         sort(Cname.begin(), Cname.end(), comp2);
         priority_queue<AVLHuffTree, vector<AVLHuffTree>,  function<bool(AVLHuffTree, AVLHuffTree)>> pq(comp1);
         int s = (int)Cname.size(), nth=0;
-        for(nth;nth<s;++nth){
+        for(;nth<s;++nth){
             HuffNode* t = new LeafNode(Cname[nth]);
             pq.push(AVLHuffTree(t, nth));
         }
@@ -160,22 +171,23 @@ public:
             pq.pop();
             AVLHuffTree t2 = pq.top();
             pq.pop();
-            pq.push(AVLHuffTree(t1, t2, nth));
+            AVLHuffTree tmp(t1, t2, nth);
+            // cout << nth << endl;
+            pq.push(tmp);
             ++nth;
         }
         Tname = pq.top();
         unordered_map<char, string> mp;
-        string binary, binName;
-        if(!Tname.root->isLeaf()) createDictionary(mp, binary, Tname.root);
-        else mp[Tname.root->getValue()] = "0";
-        for(const auto& p: Cname){
-            for(int j=0;j<p.second;++j){
-                binName += mp[p.first];
-            }
+        string binary{}, binName, cname;
+        createDictionary(mp, binary, Tname.root);
+        for(const auto& ch : name){
+            cname += ceasarEncode(ch, freq[ch]);
         }
-        int t = (int)binName.size();
-        for(int i=0;i<10&&i<t;++i){
-            this->binaryResult+= binName[t-1-i];
+        for(const auto& ch : cname){
+            binName += mp[ch];
+        }
+        for(int i=0;i<10&&i<binName.size();++i){
+            binaryResult += binName[binName.size()-1-i]; 
         }
         result = binaryToInt(binaryResult);
     }
@@ -209,7 +221,8 @@ public:
         target += "\n";
         recursiveUpdateHand(target, t->right);
     }
-};//Sukuna and helper classes
+};
+
 class heapNode{
 public:
     deque<customer*> LIST;
@@ -348,7 +361,7 @@ public:
             for(int j=0;j<num;++j){
                 if(v[i]->size==0) break;
                 customer* tmp = v[i]->popFront();
-                removedCustomer += (to_string(tmp->result) + '-' + to_string(v[i]->ID) + ' '+ tmp->name + "\n");
+                removedCustomer += (to_string(tmp->result) + '-' + to_string(v[i]->ID) + "\n");
                 delete tmp;
             }
             int pos = mp[v[i]->ID];
@@ -390,7 +403,7 @@ public:
         restaurant.traversePreorder(num, 0);
     }
 };
-// Gojo and helper classes
+
 class Node{
 public:
     customer* cus;
@@ -487,13 +500,13 @@ public:
         int size;
         return combinationCountHelper(COMBINATION, root, size);
     }
-    long long combinationCountHelper(vector<vector<int>>& COMBINATION, Node* p, int& size){
+    int combinationCountHelper(vector<vector<int>>& COMBINATION, Node* p, int& size){
         if(!p){
             size = 0;
-            return 1ll;
+            return 1;
         }
         int lsize, rsize;
-        long long countLeft = combinationCountHelper(COMBINATION, p->left, lsize), countRight = combinationCountHelper(COMBINATION, p->right, rsize);
+        int countLeft = combinationCountHelper(COMBINATION, p->left, lsize), countRight = combinationCountHelper(COMBINATION, p->right, rsize);
         size = lsize + rsize + 1;
         return (countLeft * countRight) % MAXSIZE * COMBINATION[rsize + lsize][lsize] % MAXSIZE;
     }
@@ -515,6 +528,7 @@ public:
 public:
     Gojo() {table = vector<BST>(MAXSIZE);}
     void LAPSE(customer* cus){
+        if(!cus) throw "pass nullptr" ;
         int ID = cus->result % MAXSIZE + 1;
         table[ID-1].add(cus);
     }
@@ -528,13 +542,15 @@ public:
         table[ID-1].printInorder(table[ID-1].root);
     }
 };
-// simulate
+
 void simulate(string filename){
-    int line = 1;
+	ios_base::sync_with_stdio(false);
+	cin.tie(NULL);
+	cout.tie(NULL);
     Gojo *G;
     Sukuna *S;
     ifstream ss(filename);
-    string str, maxsize, name, num;
+    string str, maxsize, name, num; 
     while(ss >> str){
         if(str == "MAXSIZE")
 		{
@@ -546,11 +562,11 @@ void simulate(string filename){
         else if(str == "LAPSE") 
         {
             ss >> name;
-            set<char> n;
-            for(const auto& ch : name) n.insert(ch);
-            if(n.size() < 3) continue;
+            unordered_set<char> s;
+            for(const auto& ch : name) s.insert(ch);
+            if(s.size() < 3) continue; 
             customer* cus = new customer(name);
-            if(cus->result%2==0) G->LAPSE(cus);
+            if(cus->result%2==1) G->LAPSE(cus);
             else S->LAPSE(cus);
     	}
     	else if(str == "KOKUSEN") 
@@ -562,12 +578,12 @@ void simulate(string filename){
             ss >> num;
     		G->LIMITLESS(stoi(num));
 		}
-    	else if(str == "KEITEIKEN") // UNLIMITED_VOID
+    	else if(str == "KEITEIKEN")
      	{   	
 			ss >> num;
             S->KEITEIKEN(stoi(num));
     	}
-    	else if(str == "CLEAVE") // DOMAIN_EXPANSION
+    	else if(str == "CLEAVE")
     	{
 			ss >> num;
             S->CLEAVE(stoi(num));
@@ -577,13 +593,10 @@ void simulate(string filename){
             cout << Hand;
     	}
         else throw "error" ;
-		++line;
     }
     delete G;
     delete S;
 }
-
-//Helper function
 char ceasarEncode(char ch, int t){
     if(isupper(ch)){
         ch = (ch-'A'+t)%26 + 'A';
@@ -604,6 +617,7 @@ bool comp2(pair<char, int> a, pair<char, int> b){
     return a.first < b.first;
 }
 int binaryToInt(string& binary){
+    if(binary.size()==0) return 0;
     int s = (int)binary.size(), result = 0;
     for(int i=0;i<s;++i){
         result *= 2;

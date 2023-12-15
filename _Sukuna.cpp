@@ -128,6 +128,7 @@ public:
             heapUp(pos);
         }
         heapDown(pos);
+        // cout << "Sukuna: " << ID <<" "<<cus->result<<" "<<AREA[mp[ID]]->size <<endl;
     }
     void remove(int num){
         num = min(num, this->size);
@@ -137,12 +138,14 @@ public:
         }
         string removedCustomer{};
         sort(v.begin(), v.end(), comp3);
+        // for(const auto& a : v) cout << a->size <<" "<<a->ID<<endl;
+        // cout << size << endl;
         for(int i=0;i<num&&0<size;++i){
             if(size==0) break;
             for(int j=0;j<num;++j){
                 if(v[i]->size==0) break;
                 customer* tmp = v[i]->popFront();
-                removedCustomer += (to_string(tmp->result) + '-' + to_string(v[i]->ID) + ' '+ tmp->name + "\n");
+                removedCustomer += (to_string(tmp->result) + '-' + to_string(v[i]->ID) + "\n");
                 delete tmp;
             }
             int pos = mp[v[i]->ID];
