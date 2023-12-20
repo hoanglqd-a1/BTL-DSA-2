@@ -11,9 +11,8 @@ int CUSTOMERCOUNT = 0;
 char ceasarEncode(char ch, int t);
 bool comp1(AVLHuffTree a, AVLHuffTree b);
 bool comp2(pair<char, int> a, pair<char, int> b);
-bool comp3(heapNode* a, heapNode* b);
 int binaryToInt(string& binary);
-
+bool comp3(heapNode* a, heapNode* b);
 class HuffNode{
 public:
     HuffNode *left=nullptr, *right=nullptr;
@@ -107,31 +106,31 @@ public:
         tmp->updateNode();
         return tmp;
     }
-    HuffNode* balance(HuffNode* p, int rotate){
+    HuffNode* balance(HuffNode* p, int& rotate){
         if(p->isLeaf()) return p;
         if(rotate==0) return p;
         while(rotate){
-        if(p->balanceValue() < -1){
-            if(p->right->balanceValue() > 0){
-                p->right = rotateRight(p->right);
-                p->updateNode();
+            if(p->balanceValue() < -1){
+                if(p->right->balanceValue() > 0){
+                    p->right = rotateRight(p->right);
+                    p->updateNode();
+                }
+                p = rotateLeft(p);
+                --rotate;
             }
-            p = rotateLeft(p);
-            --rotate;
-        }
-        else if(p->balanceValue() > 1){
-            if(p->left->balanceValue() < 0){
-                p->left = rotateLeft(p->left);
+            else if(p->balanceValue() > 1){
+                if(p->left->balanceValue() < 0){
+                    p->left = rotateLeft(p->left);
+                }
+                p = rotateRight(p);
+                --rotate;
             }
-            p = rotateRight(p);
-            --rotate;
-        }
-        else break;
+            else break;
         }
         p->left = balance(p->left, rotate);
         p->right = balance(p->right, rotate);
         p->updateNode();
-        // if(p->balanceValue()<-1 || p->balanceValue() > 1) p = balance(p, rotate); // ????
+        if(p->balanceValue()<-1 || p->balanceValue() > 1) p = balance(p, rotate); // ????
         return p;
     }
 };
@@ -151,9 +150,11 @@ public:
         nthCustomer = CUSTOMERCOUNT;
         ++CUSTOMERCOUNT;
     }
-    ~customer(){delete Tname.root;}
+    ~customer(){
+        delete Tname.root;
+    }
     void buildAVLHuffTree(){
-        unordered_map<char, int> freq, Cfreq;
+        map<char, int> freq, Cfreq;
         for(const auto& ch : name) freq[ch]++;
         vector<pair<char, int>> v;
         for(auto& p : freq) v.push_back(make_pair(ceasarEncode(p.first, p.second), p.second));
@@ -172,26 +173,28 @@ public:
             AVLHuffTree t2 = pq.top();
             pq.pop();
             AVLHuffTree tmp(t1, t2, nth);
-            // cout << nth << endl;
             pq.push(tmp);
             ++nth;
         }
         Tname = pq.top();
-        unordered_map<char, string> mp;
+        map<char, string> mp;
         string binary{}, binName, cname;
-        createDictionary(mp, binary, Tname.root);
+        if(!Tname.root->isLeaf()) createDictionary(mp, binary, Tname.root);
+        else{
+            mp[Tname.root->getValue()] = "0";
+        }
         for(const auto& ch : name){
             cname += ceasarEncode(ch, freq[ch]);
         }
         for(const auto& ch : cname){
             binName += mp[ch];
         }
-        for(int i=0;i<10&&i<binName.size();++i){
-            binaryResult += binName[binName.size()-1-i]; 
+        for(int i=0;i<10&&i<(int)binName.size();++i){
+            binaryResult += binName[(int)binName.size()-1-i];
         }
         result = binaryToInt(binaryResult);
     }
-    void createDictionary(unordered_map<char, string>& mp, string& binary, HuffNode* t){
+    void createDictionary(map<char, string>& mp, string& binary, HuffNode* t){
         if(t->isLeaf()){
             mp[t->getValue()] = binary;
             return;
@@ -281,16 +284,8 @@ class minHeap{
 public:
     vector<heapNode*> AREA;
     int size=0, changeCnt = 0;
-    unordered_map<int, int> mp;
+    map<int, int> mp;
 public:
-    void printHeap(){
-        cout << "printHeap: "<<endl;
-        cout << "heap size: " <<size <<endl;
-        for(int i=0;i<MAXSIZE;++i){
-            cout << "ID: "<<AREA[i]->ID<<" position: "<<mp[AREA[i]->ID]<<endl;
-            cout << "size: "<< AREA[i]->size <<endl;
-        }
-    }
     minHeap(){
         AREA = vector<heapNode*>(MAXSIZE);
         for(int position=0;position<MAXSIZE;++position) {
@@ -349,14 +344,14 @@ public:
         heapDown(pos);
     }
     void remove(int num){
-        num = min(num, this->size);
+        int s = min(num, size);
         vector<heapNode*> v;
-        for(int i=0;i<size;++i){
+        for(int i=0;i<s;++i){
             v.push_back(AREA[i]);
         }
         string removedCustomer{};
         sort(v.begin(), v.end(), comp3);
-        for(int i=0;i<num&&0<size;++i){
+        for(int i=0;i<s;++i){
             if(size==0) break;
             for(int j=0;j<num;++j){
                 if(v[i]->size==0) break;
@@ -418,13 +413,17 @@ class BST{
 public:
     Node *root = nullptr;
     int nodeCount=0;
+    queue<int> q;
 public:
     ~BST(){
+        // cout <<"delete BST"<<endl;
         int all = nodeCount;
         removeYNode(root, all);
     }
     void add(customer* cus){
+        q.push(cus->result);
         ++nodeCount;
+        if(nodeCount != (int)q.size()) throw "error";
         if(!root){
             root = new Node(cus);
             return;
@@ -436,17 +435,17 @@ public:
         }
         *p = new Node(cus);
     }
-    Node* remove(Node* p, customer* cus){
-        if(!p) return nullptr;
+    Node* remove(Node* p, const int& num){
+        if(!p){ throw " error";}
+        if(p->cus->result < num){
+            p->right = remove(p->right, num);
+            return p;
+        }
+        if(p->cus->result > num){
+            p->left = remove(p->left, num);
+            return p;
+        }
         --nodeCount;
-        if(p->cus->result < cus->result){
-            p->right = remove(p->right, cus);
-            return p;
-        }
-        if(p->cus->result > cus->result){
-            p->left = remove(p->left, cus);
-            return p;
-        }
         if(!p->left){
             Node *tmp = p;
             if(root==p) root = p->right;
@@ -470,30 +469,34 @@ public:
         }
         while(mlr->left->left) mlr = mlr->left;
         Node *tmp = mlr->left;
-        p->cus = std::move(tmp->cus);
+        swap(p->cus, tmp->cus);
         mlr->left = tmp->right;
         delete tmp;
         return p;
     }
-    Node* removeYNode(Node* p, int& Y){
-        if(!p) return nullptr;
-        p->left = removeYNode(p->left, Y);
-        p->right = removeYNode(p->right, Y);
-        if(Y==0) return p;
-        delete p;
-        --Y;
-        --nodeCount;
-        return nullptr;
+    Node* removeYNode(Node* p, int Y){
+        while(Y--&&!q.empty()){
+            int p = q.front();
+            q.pop();
+            root = remove(root, p);
+            if((int)q.size() != nodeCount) throw "error";
+        }
+        if(nodeCount==0) root = nullptr;
+        return root;
     }
     int combinationCount(){
         vector<vector<int>>COMBINATION(nodeCount+1, vector<int>(nodeCount+1, 1));
         for(int i=1;i<=nodeCount;++i){
-            COMBINATION[i][1] = i%MAXSIZE;
-            COMBINATION[i][i-1]=i%MAXSIZE;
+            COMBINATION[i][0]  = 1;
+            COMBINATION[i][1]  = i%MAXSIZE;
+            COMBINATION[i][i-1]= i%MAXSIZE;
+            COMBINATION[i][i]  = 1;
         }
         for(int i=2;i<=nodeCount;++i){
             for(int j=2;j<=nodeCount;++j){
-                if(i>j-1) COMBINATION[i][j] = (COMBINATION[i-1][j-1] + COMBINATION[i-1][j]) % MAXSIZE;
+                if(i>j+1) {
+                    COMBINATION[i][j] = (COMBINATION[i-1][j-1] + COMBINATION[i-1][j]) % MAXSIZE;
+                }
                 else break;
             }
         }
@@ -508,9 +511,12 @@ public:
         int lsize, rsize;
         int countLeft = combinationCountHelper(COMBINATION, p->left, lsize), countRight = combinationCountHelper(COMBINATION, p->right, rsize);
         size = lsize + rsize + 1;
-        return (countLeft * countRight) % MAXSIZE * COMBINATION[rsize + lsize][lsize] % MAXSIZE;
+        int ans = (countLeft * countRight) % MAXSIZE * COMBINATION[rsize + lsize][lsize] % MAXSIZE;
+        return ans;
     }
     void KOKUSEN(){
+        if(nodeCount!=(int)q.size()) throw "error";
+        if(nodeCount==0) return;
         int cnt = combinationCount();
         root = removeYNode(root, cnt);
     }
@@ -544,25 +550,22 @@ public:
 };
 
 void simulate(string filename){
-	ios_base::sync_with_stdio(false);
-	cin.tie(NULL);
-	cout.tie(NULL);
-    Gojo *G;
-    Sukuna *S;
+    ios_base::sync_with_stdio(false); 
+    cin.tie(NULL);
+    cout.tie(NULL);
     ifstream ss(filename);
-    string str, maxsize, name, num; 
+    string str, maxsize, name, num;
+    string M;
+    ss >> M;
+    ss >> maxsize;
+    MAXSIZE = stoi(maxsize);
+    Gojo* G = new Gojo();
+    Sukuna* S = new Sukuna();
     while(ss >> str){
-        if(str == "MAXSIZE")
-		{
-			ss >> maxsize;
-			MAXSIZE = stoi(maxsize); 
-            G = new Gojo();
-            S = new Sukuna();
-    	}
-        else if(str == "LAPSE") 
+        if(str == "LAPSE") 
         {
             ss >> name;
-            unordered_set<char> s;
+            set<char> s;
             for(const auto& ch : name) s.insert(ch);
             if(s.size() < 3) continue; 
             customer* cus = new customer(name);
@@ -583,7 +586,7 @@ void simulate(string filename){
 			ss >> num;
             S->KEITEIKEN(stoi(num));
     	}
-    	else if(str == "CLEAVE")
+    	else if(str == "CLEAVE") // DOMAIN_EXPANSION
     	{
 			ss >> num;
             S->CLEAVE(stoi(num));
@@ -597,6 +600,7 @@ void simulate(string filename){
     delete G;
     delete S;
 }
+
 char ceasarEncode(char ch, int t){
     if(isupper(ch)){
         ch = (ch-'A'+t)%26 + 'A';
@@ -616,6 +620,10 @@ bool comp2(pair<char, int> a, pair<char, int> b){
     if(isupper(a.first)&&islower(b.first)) return false;
     return a.first < b.first;
 }
+bool comp3(heapNode* a, heapNode* b){
+    if(a->size == b->size) return a->lastChange < b->lastChange;
+    return a->size < b->size;
+}
 int binaryToInt(string& binary){
     if(binary.size()==0) return 0;
     int s = (int)binary.size(), result = 0;
@@ -624,8 +632,4 @@ int binaryToInt(string& binary){
         result += binary[i] - '0';
     }
     return result;
-}
-bool comp3(heapNode* a, heapNode* b){
-    if(a->size == b->size) return a->lastChange < b->lastChange;
-    return a->size < b->size;
 }

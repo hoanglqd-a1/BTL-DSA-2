@@ -1,31 +1,32 @@
-#include "main.h"
+#include <bits/stdc++.h>
+
+int allocate=0;
+using namespace std;
 
 class customer;
 class AVLHuffTree;
 class heapNode;
 
-int MAXSIZE = 1;
+int MAXSIZE;
 string Hand;
 int CUSTOMERCOUNT = 0;
 
 char ceasarEncode(char ch, int t);
 bool comp1(AVLHuffTree a, AVLHuffTree b);
 bool comp2(pair<char, int> a, pair<char, int> b);
-bool comp3(heapNode* a, heapNode* b);
 int binaryToInt(string& binary);
-
-// customer and helper classes ------------------
+bool comp3(heapNode* a, heapNode* b);
 class HuffNode{
 public:
     HuffNode *left=nullptr, *right=nullptr;
 public:
-	virtual ~HuffNode() {}
+    virtual ~HuffNode() {}
     virtual bool isLeaf() = 0;
     virtual int getWeight() = 0;
     virtual int getHeight() = 0;
-    virtual void updateHeight() = 0;
     virtual int balanceValue() = 0;
     virtual char getValue() = 0;
+    virtual void updateNode() = 0;
 };
 
 class LeafNode : public HuffNode{
@@ -38,8 +39,8 @@ public:
     ~LeafNode() {}
     bool isLeaf() {return true;}
     int getWeight() {return wgt;}
-    int getHeight() {return height;}
-    void updateHeight() {height = 0;}
+    int getHeight() {return 0;}
+    void updateNode() {height = 0;}
     int balanceValue() {return 0;}
     char getValue() {return val;}
 };
@@ -59,12 +60,20 @@ public:
     ~InnerNode(){
         delete left;
         delete right;
+        allocate -= 2;
     }
     bool isLeaf() {return false;}
     int getWeight() {return wgt;}
     int getHeight() {return height;}
-    void updateHeight(){height = max(left->getHeight(), right->getHeight()) + 1;}
-    int balanceValue() {return left->getHeight() - right->getHeight();}
+    void updateNode(){
+        int l = left->getHeight();
+        int r = right->getHeight();
+        height = max(l, r) + 1;
+    }
+    int balanceValue() {
+        if(!isLeaf()) return left->getHeight() - right->getHeight();
+        return 0;
+    }
     char getValue() {return '!';}
 };
 
@@ -77,7 +86,9 @@ public:
     AVLHuffTree(HuffNode* node, int nthTree) : root{node}, nthTree{nthTree} {}
     AVLHuffTree(AVLHuffTree l, AVLHuffTree r, int nthTree) : nthTree{nthTree} {
         root = new InnerNode(l.root, r.root);
-        root = balance(root);
+        ++allocate;
+        int rotate = 3;
+        root = balance(root, rotate);
     }
     int weight() {return root->getWeight();}
     HuffNode* rotateLeft(HuffNode* p){
@@ -86,8 +97,8 @@ public:
         HuffNode* tmp = p->right;
         p->right = tmp->left;
         tmp->left = p;
-        p->updateHeight();
-        tmp->updateHeight();
+        p->updateNode();
+        tmp->updateNode();
         return tmp;
     }
     HuffNode* rotateRight(HuffNode* p) {
@@ -96,41 +107,36 @@ public:
         HuffNode* tmp = p->left;
         p->left = tmp->right;
         tmp->right = p;
-        p->updateHeight();
-        tmp->updateHeight();
+        p->updateNode();
+        tmp->updateNode();
         return tmp;
     }
-    /*incompleted*/HuffNode* balance(HuffNode* p){
-        for(int i=0;i<3;++i){
+    HuffNode* balance(HuffNode* p, int& rotate){
+        if(p->isLeaf()) return p;
+        if(rotate==0) return p;
+        while(rotate){
             if(p->balanceValue() < -1){
                 if(p->right->balanceValue() > 0){
                     p->right = rotateRight(p->right);
+                    p->updateNode();
                 }
                 p = rotateLeft(p);
+                --rotate;
             }
             else if(p->balanceValue() > 1){
                 if(p->left->balanceValue() < 0){
-                    p->left = rotateRight(p->left);
+                    p->left = rotateLeft(p->left);
                 }
                 p = rotateRight(p);
+                --rotate;
             }
             else break;
         }
+        p->left = balance(p->left, rotate);
+        p->right = balance(p->right, rotate);
+        p->updateNode();
+        if(p->balanceValue()<-1 || p->balanceValue() > 1) p = balance(p, rotate); // ????
         return p;
-    }
-    void printTree(){
-        cout << "print Tree: " <<endl;
-        HuffNode* t = root;
-        stack<HuffNode*> st;
-        st.push(t);
-        while(!st.empty()){
-            HuffNode* t = st.top();
-            cout << t->getHeight() <<" ";
-            st.pop();
-            if(t->right) st.push(t->right);
-            if(t->left) st.push(t->left);
-            cout << t->getValue() <<" "<<t->getWeight()<<endl;
-        }
     }
 };
 
@@ -149,9 +155,12 @@ public:
         nthCustomer = CUSTOMERCOUNT;
         ++CUSTOMERCOUNT;
     }
-    ~customer(){delete Tname.root;}
+    ~customer(){
+        delete Tname.root;
+        --allocate;
+    }
     void buildAVLHuffTree(){
-        unordered_map<char, int> freq, Cfreq;
+        map<char, int> freq, Cfreq;
         for(const auto& ch : name) freq[ch]++;
         vector<pair<char, int>> v;
         for(auto& p : freq) v.push_back(make_pair(ceasarEncode(p.first, p.second), p.second));
@@ -160,8 +169,9 @@ public:
         sort(Cname.begin(), Cname.end(), comp2);
         priority_queue<AVLHuffTree, vector<AVLHuffTree>,  function<bool(AVLHuffTree, AVLHuffTree)>> pq(comp1);
         int s = (int)Cname.size(), nth=0;
-        for(nth;nth<s;++nth){
+        for(;nth<s;++nth){
             HuffNode* t = new LeafNode(Cname[nth]);
+            ++allocate;
             pq.push(AVLHuffTree(t, nth));
         }
         while(pq.size()>1){
@@ -169,26 +179,29 @@ public:
             pq.pop();
             AVLHuffTree t2 = pq.top();
             pq.pop();
-            pq.push(AVLHuffTree(t1, t2, nth));
+            AVLHuffTree tmp(t1, t2, nth);
+            pq.push(tmp);
             ++nth;
         }
         Tname = pq.top();
-        unordered_map<char, string> mp;
-        string binary, binName;
+        map<char, string> mp;
+        string binary{}, binName, cname;
         if(!Tname.root->isLeaf()) createDictionary(mp, binary, Tname.root);
-        else mp[Tname.root->getValue()] = "0";
-        for(const auto& p: Cname){
-            for(int j=0;j<p.second;++j){
-                binName += mp[p.first];
-            }
+        else{
+            mp[Tname.root->getValue()] = "0";
         }
-        int t = (int)binName.size();
-        for(int i=0;i<10&&i<t;++i){
-            this->binaryResult+= binName[t-1-i];
+        for(const auto& ch : name){
+            cname += ceasarEncode(ch, freq[ch]);
+        }
+        for(const auto& ch : cname){
+            binName += mp[ch];
+        }
+        for(int i=0;i<10&&i<(int)binName.size();++i){
+            binaryResult += binName[(int)binName.size()-1-i];
         }
         result = binaryToInt(binaryResult);
     }
-    void createDictionary(unordered_map<char, string>& mp, string& binary, HuffNode* t){
+    void createDictionary(map<char, string>& mp, string& binary, HuffNode* t){
         if(t->isLeaf()){
             mp[t->getValue()] = binary;
             return;
@@ -203,18 +216,6 @@ public:
             createDictionary(mp, binary, t->right);
             binary.pop_back();
         }
-    }
-    void printCustomer(){
-        cout << "name: " << this->name <<endl;
-        Tname.printTree();
-        cout << "nth: " <<nthCustomer <<endl;
-        cout << "char frequency: ";
-        for(const auto& a : Cname){
-            cout << a.first <<": "<<a.second <<" -> ";
-        }
-        cout << endl;
-        cout << "binary result: "<< this->binaryResult <<endl;
-        cout << "result: " << this->result <<endl;
     }
     void updateHAND(){
         Hand.clear();
@@ -231,7 +232,7 @@ public:
         recursiveUpdateHand(target, t->right);
     }
 };
-//Sukuna and helper classes
+
 class heapNode{
 public:
     deque<customer*> LIST;
@@ -239,9 +240,11 @@ public:
 public:
     heapNode(int ID) : ID{ID} {}
     ~heapNode(){
+        if(size != LIST.size()) cout << "heap error" <<endl;
         while(size){
             customer* cus = this->popFront();
             delete cus;
+            --allocate;
         }
     }
     bool add(customer* cus){
@@ -271,7 +274,7 @@ public:
         stack<customer*> st;
         while(num--&&size){
             st.push(this->popBack());
-            cout << ID <<'-'<<st.top()->result<<'-'<<st.top()->name<<"\n";
+            cout << ID <<'-'<<st.top()->result<<"\n";
         }
         while(!st.empty()){
             customer *tmp = st.top();
@@ -281,7 +284,7 @@ public:
         }
     }
     bool operator > (const heapNode& X){
-        if(this->size==X.size) return this->lastChange < X.lastChange;
+        if(this->size==X.size) return this->lastChange > X.lastChange;
         return this->size > X.size;
     }
 };
@@ -290,116 +293,96 @@ class minHeap{
 public:
     vector<heapNode*> AREA;
     int size=0, changeCnt = 0;
-    unordered_map<int, int> mp;
+    map<int, int> mp;
 public:
-    void printHeap(){
-        cout << "printHeap: "<<endl;
-        cout << "heap size: " <<size <<endl;
-        for(int i=0;i<MAXSIZE;++i){
-            cout << "ID: "<<AREA[i]->ID<<" position: "<<mp[AREA[i]->ID]<<endl;
-            cout << "size: "<< AREA[i]->size <<endl;
-        }
-    }
     minHeap(){
         AREA = vector<heapNode*>(MAXSIZE);
         for(int position=0;position<MAXSIZE;++position) {
             int ID = position+1;
             AREA[position] = new heapNode(ID);
+            ++allocate;
             mp[ID] = position;
         }
     }
     ~minHeap() {
         for(int i=0;i<MAXSIZE;++i){
             delete AREA[i];
+            --allocate;
         }
     }
     void heapUp(int pos){
         if(pos < 0||pos>=size) throw "out of range";
-        heapNode* tmp = std::move(AREA[pos]);
-        while(pos){
+        while(pos > 0){
             int parent = (pos-1)/2;
-            if(*AREA[parent] > *tmp){
-                mp[AREA[parent]->ID] = pos;
-                AREA[pos] = std::move(AREA[parent]);
+            if(*AREA[parent] > *AREA[pos]){
+                swapNode(parent, pos);
                 pos = parent;
             }
             else break;
         }
-        mp[tmp->ID] = pos;
-        AREA[pos] = std::move(tmp);
     }
     void heapDown(int pos){
         if(pos>=size) throw "out of range";
-        heapNode* tmp = std::move(AREA[pos]);
-        while(pos*2+1<size){
-            int left = pos*2+1, right = left+1;
-            if(*AREA[left] > *tmp && (right==size||*AREA[right] > *tmp)) break;
-            if(right == size || AREA[left] > AREA[right]){
-                mp[AREA[left]->ID] = pos;
-                AREA[pos] = std::move(AREA[left]);
+        while(pos*2+1 < size){
+            int left = 2*pos+1, right = 2*pos+2;
+            if(*AREA[left] > *AREA[pos] && (right>=size||*AREA[right] > *AREA[pos])) break;
+            if(right >= size || *AREA[right] > *AREA[left]){
+                swapNode(left, pos);
                 pos = left;
             }
             else{
-                mp[AREA[right]->ID] = pos;
-                AREA[pos] = std::move(AREA[right]);
+                swapNode(right, pos);
                 pos = right;
             }
         }
-        mp[tmp->ID] = pos;
-        AREA[pos] = std::move(tmp);
     }
-    void moveUp(int pos){
-        int parent = (pos-1)/2;
-        swap(mp[AREA[parent]->ID], mp[AREA[pos]->ID]);
-        swap(AREA[parent], AREA[pos]);
+    void swapNode(int posA, int posB){
+        swap(mp[AREA[posA]->ID], mp[AREA[posB]->ID]);
+        swap(AREA[posA], AREA[posB]);
     }
     void add(customer* cus){
         if(!cus) throw "pass nullptr";
         int ID = cus->result % MAXSIZE + 1;
         int pos = mp[ID];
-        AREA[mp[ID]]->lastChange = changeCnt;
-        if(AREA[mp[ID]]->add(cus)){
-            swap(mp[ID], mp[AREA[size]->ID]);
-            swap(AREA[size], AREA[pos]);
-            ++size;
-            heapUp(mp[ID]);
-        }
-        heapDown(mp[ID]);
+        AREA[pos]->lastChange = changeCnt;
         ++changeCnt;
+        if(AREA[pos]->add(cus)){
+            swapNode(pos, size);
+            pos = size;
+            ++size;
+            heapUp(pos);
+        }
+        heapDown(pos);
     }
     void remove(int num){
-        num = min(num, this->size);
+        int s = min(num, size);
         vector<heapNode*> v;
-        for(int i=0;i<size;++i){
+        for(int i=0;i<s;++i){
             v.push_back(AREA[i]);
         }
         string removedCustomer{};
         sort(v.begin(), v.end(), comp3);
-        for(int i=0;i<num&&0<size;++i){
+        for(int i=0;i<s;++i){
+            if(size==0) break;
             for(int j=0;j<num;++j){
                 if(v[i]->size==0) break;
                 customer* tmp = v[i]->popFront();
-                removedCustomer += (to_string(tmp->result) + '-' + to_string(v[i]->ID) + ' '+ tmp->name + "\n");
+                removedCustomer += (to_string(tmp->result) + '-' + to_string(v[i]->ID) + "\n");
                 delete tmp;
+                --allocate;
             }
-            AREA[mp[v[i]->ID]]->lastChange = changeCnt;
+            int pos = mp[v[i]->ID];
+            AREA[pos]->lastChange = changeCnt;
             ++changeCnt;
             if(v[i]->size==0){
                 --size;
-                int pos = mp[v[i]->ID];
-                swap(mp[AREA[pos]->ID], mp[AREA[size]->ID]);
-                swap(AREA[pos], AREA[size]);
-                heapDown(mp[pos]);
-                heapUp(mp[pos]);
-                // cout << AREA[size]->ID <<" "<<mp[AREA[size]->ID] <<endl;
-                // cout << AREA[pos]->ID<<" "<<mp[AREA[pos]->ID] <<endl;
+                if(pos >= size) continue;
+                swapNode(pos, size);
+                if(pos > 0 && *AREA[(pos-1)/2] > *AREA[pos]) heapUp(pos);
+                else heapDown(pos);
             }
             else{
-                int j=i;
-                while(j > 0 && AREA[j]->size >= AREA[(j-1)/2]->size){
-                    moveUp(j);
-                    j = (j-1)/2;
-                }
+                heapUp(pos);
             }
         }
         cout << removedCustomer;
@@ -427,7 +410,7 @@ public:
         restaurant.traversePreorder(num, 0);
     }
 };
-// Gojo and helper classes
+
 class Node{
 public:
     customer* cus;
@@ -435,23 +418,28 @@ public:
 public:
     Node() {}
     Node(customer* cus) : cus(cus), left{nullptr}, right{nullptr} {}
-    ~Node() {delete cus;}
+    ~Node() {delete cus; --allocate;}
 };
 
 class BST{
 public:
     Node *root = nullptr;
     int nodeCount=0;
+    queue<int> q;
 public:
     ~BST(){
+        // cout <<"delete BST"<<endl;
         int all = nodeCount;
+        if(all != q.size()) cout << "error" <<endl;
         removeYNode(root, all);
     }
     void add(customer* cus){
+        q.push(cus->result);
         ++nodeCount;
+        if(nodeCount != (int)q.size()) throw "error";
         if(!root){
             root = new Node(cus);
-            cout << root->cus->name <<endl;
+            ++allocate;
             return;
         }
         Node**p = &root;
@@ -460,23 +448,25 @@ public:
             else {p = &(*p)->right;}
         }
         *p = new Node(cus);
+        ++allocate;
     }
-    Node* remove(Node* p, customer* cus){
-        if(!p) return nullptr;
+    Node* remove(Node* p, const int& num){
+        if(!p){ throw " error";}
+        if(p->cus->result < num){
+            p->right = remove(p->right, num);
+            return p;
+        }
+        if(p->cus->result > num){
+            p->left = remove(p->left, num);
+            return p;
+        }
         --nodeCount;
-        if(p->cus->result < cus->result){
-            p->right = remove(p->right, cus);
-            return p;
-        }
-        if(p->cus->result > cus->result){
-            p->left = remove(p->left, cus);
-            return p;
-        }
         if(!p->left){
             Node *tmp = p;
             if(root==p) root = p->right;
             p = p->right;
             delete tmp;
+            --allocate;
             return p;
         }
         if(!p->right){
@@ -484,6 +474,7 @@ public:
             if(root==p) root = p->left;
             p = p->left;
             delete tmp;
+            --allocate;
             return p;
         }
         Node *mlr = p->right;
@@ -491,51 +482,60 @@ public:
             mlr->left = p->left;
             if(root==p) root = mlr;
             delete p;
+            --allocate;
             return mlr;
         }
         while(mlr->left->left) mlr = mlr->left;
         Node *tmp = mlr->left;
-        p->cus = std::move(tmp->cus);
+        swap(p->cus, tmp->cus);
         mlr->left = tmp->right;
         delete tmp;
+        --allocate;
         return p;
     }
-    Node* removeYNode(Node* p, int& Y){
-        if(!p) return nullptr;
-        p->left = removeYNode(p->left, Y);
-        p->right = removeYNode(p->right, Y);
-        if(Y==0) return p;
-        delete p;
-        --Y;
-        --nodeCount;
-        return nullptr;
+    Node* removeYNode(Node* p, int Y){
+        while(Y--&&!q.empty()){
+            int p = q.front();
+            q.pop();
+            root = remove(root, p);
+            if((int)q.size() != nodeCount) throw "error";
+        }
+        if(nodeCount==0) root = nullptr;
+        return root;
     }
     int combinationCount(){
         vector<vector<int>>COMBINATION(nodeCount+1, vector<int>(nodeCount+1, 1));
         for(int i=1;i<=nodeCount;++i){
-            COMBINATION[i][1] = i%MAXSIZE;
-            COMBINATION[i][i-1]=i%MAXSIZE;
+            COMBINATION[i][0]  = 1;
+            COMBINATION[i][1]  = i%MAXSIZE;
+            COMBINATION[i][i-1]= i%MAXSIZE;
+            COMBINATION[i][i]  = 1;
         }
         for(int i=2;i<=nodeCount;++i){
             for(int j=2;j<=nodeCount;++j){
-                if(i>j-1) COMBINATION[i][j] = (COMBINATION[i-1][j-1] + COMBINATION[i-1][j]) % MAXSIZE;
+                if(i>j+1) {
+                    COMBINATION[i][j] = (COMBINATION[i-1][j-1] + COMBINATION[i-1][j]) % MAXSIZE;
+                }
                 else break;
             }
         }
         int size;
         return combinationCountHelper(COMBINATION, root, size);
     }
-    long long combinationCountHelper(vector<vector<int>>& COMBINATION, Node* p, int& size){
+    int combinationCountHelper(vector<vector<int>>& COMBINATION, Node* p, int& size){
         if(!p){
             size = 0;
-            return 1ll;
+            return 1;
         }
         int lsize, rsize;
-        long long countLeft = combinationCountHelper(COMBINATION, p->left, lsize), countRight = combinationCountHelper(COMBINATION, p->right, rsize);
+        int countLeft = combinationCountHelper(COMBINATION, p->left, lsize), countRight = combinationCountHelper(COMBINATION, p->right, rsize);
         size = lsize + rsize + 1;
-        return (countLeft * countRight) % MAXSIZE * COMBINATION[rsize + lsize][lsize] % MAXSIZE;
+        int ans = (countLeft * countRight) % MAXSIZE * COMBINATION[rsize + lsize][lsize] % MAXSIZE;
+        return ans;
     }
     void KOKUSEN(){
+        if(nodeCount!=(int)q.size()) throw "error";
+        if(nodeCount==0) return;
         int cnt = combinationCount();
         root = removeYNode(root, cnt);
     }
@@ -553,8 +553,8 @@ public:
 public:
     Gojo() {table = vector<BST>(MAXSIZE);}
     void LAPSE(customer* cus){
+        if(!cus) throw "pass nullptr" ;
         int ID = cus->result % MAXSIZE + 1;
-        // cout << "ID: " << ID <<endl;
         table[ID-1].add(cus);
     }
     void KOKUSEN(){
@@ -567,70 +567,64 @@ public:
         table[ID-1].printInorder(table[ID-1].root);
     }
 };
-// simulate
+
 void simulate(string filename){
-    int line = 1;
+    ios_base::sync_with_stdio(false); 
+    cin.tie(NULL);
+    cout.tie(NULL);
     ifstream ss(filename);
     string str, maxsize, name, num;
-	Gojo *G;
-	Sukuna *S;
+    string M;
+    ss >> M;
+    ss >> maxsize;
+    MAXSIZE = stoi(maxsize);
+    Gojo* G = new Gojo();
+    ++allocate;
+    Sukuna* S = new Sukuna();
+    ++allocate;
     while(ss >> str){
-        cout << line <<" ";
-        if(str == "MAXSIZE")
-		{
-			ss >> maxsize;
-			MAXSIZE = stoi(maxsize); 
-            cout << str <<" "<<maxsize<<endl;
-            G = new Gojo();
-            S = new Sukuna();
-    	}
-        else if(str == "LAPSE") 
+        if(str == "LAPSE") 
         {
             ss >> name;
-			set<char> n;
-    		for(const auto& ch : name) n.insert(ch);
-    		if(n.size() < 3) continue;
-    		customer* cus = new customer(name);
-    		if(cus->result%2==0) G->LAPSE(cus);
-    		else S->LAPSE(cus);
-            cout << str <<" "<<name<<endl;
+            set<char> s;
+            for(const auto& ch : name) s.insert(ch);
+            if(s.size() < 3) continue; 
+            customer* cus = new customer(name);
+            ++allocate;
+            if(cus->result%2==1) G->LAPSE(cus);
+            else S->LAPSE(cus);
     	}
     	else if(str == "KOKUSEN") 
     	{
             G->KOKUSEN();
-            cout << str <<endl;
 		}
     	else if(str == "LIMITLESS") 
     	{
             ss >> num;
     		G->LIMITLESS(stoi(num));
-            cout << str <<" "<<num <<endl;
 		}
     	else if(str == "KEITEIKEN")
      	{   	
 			ss >> num;
             S->KEITEIKEN(stoi(num));
-            cout << str <<" "<<num <<endl;
     	}
-    	else if(str == "CLEAVE") 
+    	else if(str == "CLEAVE") // DOMAIN_EXPANSION
     	{
 			ss >> num;
             S->CLEAVE(stoi(num));
-            cout << str <<" "<<num <<endl;
     	}
     	else if(str == "HAND")
     	{
-            cout << str << endl;
             cout << Hand;
     	}
-        else throw "error" ;
-		++line;
     }
-	delete G;
-	delete S;
+    ss.close();
+    delete G;
+    --allocate;
+    delete S;
+    --allocate;
 }
 
-//Helper function
 char ceasarEncode(char ch, int t){
     if(isupper(ch)){
         ch = (ch-'A'+t)%26 + 'A';
@@ -650,7 +644,12 @@ bool comp2(pair<char, int> a, pair<char, int> b){
     if(isupper(a.first)&&islower(b.first)) return false;
     return a.first < b.first;
 }
+bool comp3(heapNode* a, heapNode* b){
+    if(a->size == b->size) return a->lastChange < b->lastChange;
+    return a->size < b->size;
+}
 int binaryToInt(string& binary){
+    if(binary.size()==0) return 0;
     int s = (int)binary.size(), result = 0;
     for(int i=0;i<s;++i){
         result *= 2;
@@ -658,7 +657,10 @@ int binaryToInt(string& binary){
     }
     return result;
 }
-bool comp3(heapNode* a, heapNode* b){
-    if(a->size == b->size) return a->lastChange < b->lastChange;
-    return a->size < b->size;
+
+int main(int argc, char* argv[]) {
+    string fileName = "input.txt";
+    simulate(fileName);
+    cout << allocate << endl;
+    return 0;
 }

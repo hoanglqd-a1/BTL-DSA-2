@@ -62,16 +62,8 @@ class minHeap{
 public:
     vector<heapNode*> AREA;
     int size=0, changeCnt = 0;
-    unordered_map<int, int> mp;
+    map<int, int> mp;
 public:
-    void printHeap(){
-        cout << "printHeap: "<<endl;
-        cout << "heap size: " <<size <<endl;
-        for(int i=0;i<MAXSIZE;++i){
-            cout << "ID: "<<AREA[i]->ID<<" position: "<<mp[AREA[i]->ID]<<endl;
-            cout << "size: "<< AREA[i]->size <<endl;
-        }
-    }
     minHeap(){
         AREA = vector<heapNode*>(MAXSIZE);
         for(int position=0;position<MAXSIZE;++position) {
@@ -128,19 +120,16 @@ public:
             heapUp(pos);
         }
         heapDown(pos);
-        // cout << "Sukuna: " << ID <<" "<<cus->result<<" "<<AREA[mp[ID]]->size <<endl;
     }
     void remove(int num){
-        num = min(num, this->size);
+        int s = min(num, size);
         vector<heapNode*> v;
-        for(int i=0;i<size;++i){
+        for(int i=0;i<s;++i){
             v.push_back(AREA[i]);
         }
         string removedCustomer{};
         sort(v.begin(), v.end(), comp3);
-        // for(const auto& a : v) cout << a->size <<" "<<a->ID<<endl;
-        // cout << size << endl;
-        for(int i=0;i<num&&0<size;++i){
+        for(int i=0;i<s;++i){
             if(size==0) break;
             for(int j=0;j<num;++j){
                 if(v[i]->size==0) break;
@@ -157,8 +146,6 @@ public:
                 swapNode(pos, size);
                 if(pos > 0 && *AREA[(pos-1)/2] > *AREA[pos]) heapUp(pos);
                 else heapDown(pos);
-                // cout << AREA[size]->ID <<" "<<mp[AREA[size]->ID] <<endl;
-                // cout << AREA[pos]->ID<<" "<<mp[AREA[pos]->ID] <<endl;
             }
             else{
                 heapUp(pos);

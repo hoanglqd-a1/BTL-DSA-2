@@ -65,9 +65,6 @@ public:
         int l = left->getHeight();
         int r = right->getHeight();
         height = max(l, r) + 1;
-        // int lw = (left) ? left->getWeight() : 0;
-        // int rw = (right) ? right->getWeight() : 0;
-        // wgt = lw + rw;
     }
     int balanceValue() {
         if(!isLeaf()) return left->getHeight() - right->getHeight();
@@ -109,45 +106,32 @@ public:
         tmp->updateNode();
         return tmp;
     }
-    HuffNode* balance(HuffNode* p, int rotate){
+    HuffNode* balance(HuffNode* p, int& rotate){
         if(p->isLeaf()) return p;
         if(rotate==0) return p;
         while(rotate){
-        if(p->balanceValue() < -1){
-            if(p->right->balanceValue() > 0){
-                p->right = rotateRight(p->right);
-                p->updateNode();
+            if(p->balanceValue() < -1){
+                if(p->right->balanceValue() > 0){
+                    p->right = rotateRight(p->right);
+                    p->updateNode();
+                }
+                p = rotateLeft(p);
+                --rotate;
             }
-            p = rotateLeft(p);
-            --rotate;
-        }
-        else if(p->balanceValue() > 1){
-            if(p->left->balanceValue() < 0){
-                p->left = rotateLeft(p->left);
+            else if(p->balanceValue() > 1){
+                if(p->left->balanceValue() < 0){
+                    p->left = rotateLeft(p->left);
+                }
+                p = rotateRight(p);
+                --rotate;
             }
-            p = rotateRight(p);
-            --rotate;
-        }
-        else break;
+            else break;
         }
         p->left = balance(p->left, rotate);
         p->right = balance(p->right, rotate);
         p->updateNode();
-        // if(p->balanceValue()<-1 || p->balanceValue() > 1) p = balance(p, rotate); // ????
+        if(p->balanceValue()<-1 || p->balanceValue() > 1) p = balance(p, rotate); // ????
         return p;
-    }
-    void printTree(const string& prefix, HuffNode* node, bool isLeft){
-        if(node){
-            cout << prefix;
-            cout << (isLeft ? "├──" : "└──");
-            if(node->isLeaf()) cout << node->getValue() <<endl;
-            else cout << node->getWeight() << endl;
-            printTree(prefix + (isLeft ? "│  " : "   "), node->left, true);
-            printTree(prefix + (isLeft ? "│  " : "   "), node->right, false);
-        }
-    }
-    void printTree(){
-        printTree("", root, false);
     }
 };
 
@@ -166,9 +150,11 @@ public:
         nthCustomer = CUSTOMERCOUNT;
         ++CUSTOMERCOUNT;
     }
-    ~customer(){delete Tname.root;}
+    ~customer(){
+        delete Tname.root;
+    }
     void buildAVLHuffTree(){
-        unordered_map<char, int> freq, Cfreq;
+        map<char, int> freq, Cfreq;
         for(const auto& ch : name) freq[ch]++;
         vector<pair<char, int>> v;
         for(auto& p : freq) v.push_back(make_pair(ceasarEncode(p.first, p.second), p.second));
@@ -187,18 +173,16 @@ public:
             AVLHuffTree t2 = pq.top();
             pq.pop();
             AVLHuffTree tmp(t1, t2, nth);
-            // cout << nth << endl;
-            // tmp.printTree();
             pq.push(tmp);
             ++nth;
         }
         Tname = pq.top();
         unordered_map<char, string> mp;
         string binary{}, binName, cname;
-        createDictionary(mp, binary, Tname.root);
-        // for(const auto& a : mp){
-        //     cout << a.first<<": "<<a.second << endl;
-        // }
+        if(!Tname.root->isLeaf()) createDictionary(mp, binary, Tname.root);
+        else{
+            mp[Tname.root->getValue()] = "0";
+        }
         for(const auto& ch : name){
             cname += ceasarEncode(ch, freq[ch]);
         }
@@ -206,15 +190,9 @@ public:
             binName += mp[ch];
         }
         for(int i=0;i<10&&i<binName.size();++i){
-            binaryResult += binName[binName.size()-1-i]; 
+            binaryResult += binName[binName.size()-1-i];
         }
         result = binaryToInt(binaryResult);
-        // cout << result << endl;
-        // cout << "cname: " <<cname << endl;
-        // cout << binName<<" "<<binaryResult<<endl;
-        // for(const auto& a : Cname) cout << a.first<<" "<<a.second<<" -> ";
-        // cout << endl;
-        // Tname.printTree();
     }
     void createDictionary(unordered_map<char, string>& mp, string& binary, HuffNode* t){
         if(t->isLeaf()){
@@ -231,18 +209,6 @@ public:
             createDictionary(mp, binary, t->right);
             binary.pop_back();
         }
-    }
-    void printCustomer(){
-        cout << "name: " << this->name <<endl;
-        Tname.printTree();
-        cout << "nth: " <<nthCustomer <<endl;
-        cout << "char frequency: ";
-        for(const auto& a : Cname){
-            cout << a.first <<": "<<a.second <<" -> ";
-        }
-        cout << endl;
-        cout << "binary result: "<< this->binaryResult <<endl;
-        cout << "result: " << this->result <<endl;
     }
     void updateHAND(){
         Hand.clear();

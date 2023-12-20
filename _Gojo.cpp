@@ -14,13 +14,17 @@ class BST{
 public:
     Node *root = nullptr;
     int nodeCount=0;
+    queue<int> q;
 public:
     ~BST(){
+        // cout <<"delete BST"<<endl;
         int all = nodeCount;
         removeYNode(root, all);
     }
     void add(customer* cus){
+        q.push(cus->result);
         ++nodeCount;
+        if(nodeCount != q.size()) throw "error";
         if(!root){
             root = new Node(cus);
             return;
@@ -32,17 +36,17 @@ public:
         }
         *p = new Node(cus);
     }
-    Node* remove(Node* p, customer* cus){
-        if(!p) return nullptr;
+    Node* remove(Node* p, const int& num){
+        if(!p){ throw " error";}
+        if(p->cus->result < num){
+            p->right = remove(p->right, num);
+            return p;
+        }
+        if(p->cus->result > num){
+            p->left = remove(p->left, num);
+            return p;
+        }
         --nodeCount;
-        if(p->cus->result < cus->result){
-            p->right = remove(p->right, cus);
-            return p;
-        }
-        if(p->cus->result > cus->result){
-            p->left = remove(p->left, cus);
-            return p;
-        }
         if(!p->left){
             Node *tmp = p;
             if(root==p) root = p->right;
@@ -66,30 +70,34 @@ public:
         }
         while(mlr->left->left) mlr = mlr->left;
         Node *tmp = mlr->left;
-        p->cus = std::move(tmp->cus);
+        swap(p->cus, tmp->cus);
         mlr->left = tmp->right;
         delete tmp;
         return p;
     }
-    Node* removeYNode(Node* p, int& Y){
-        if(!p) return nullptr;
-        p->left = removeYNode(p->left, Y);
-        p->right = removeYNode(p->right, Y);
-        if(Y==0) return p;
-        delete p;
-        --Y;
-        --nodeCount;
-        return nullptr;
+    Node* removeYNode(Node* p, int Y){
+        while(Y--&&!q.empty()){
+            int p = q.front();
+            q.pop();
+            root = remove(root, p);
+            if(q.size() != nodeCount) throw "error";
+        }
+        if(nodeCount==0) root = nullptr;
+        return root;
     }
     int combinationCount(){
         vector<vector<int>>COMBINATION(nodeCount+1, vector<int>(nodeCount+1, 1));
         for(int i=1;i<=nodeCount;++i){
-            COMBINATION[i][1] = i%MAXSIZE;
-            COMBINATION[i][i-1]=i%MAXSIZE;
+            COMBINATION[i][0]  = 1;
+            COMBINATION[i][1]  = i%MAXSIZE;
+            COMBINATION[i][i-1]= i%MAXSIZE;
+            COMBINATION[i][i]  = 1;
         }
         for(int i=2;i<=nodeCount;++i){
             for(int j=2;j<=nodeCount;++j){
-                if(i>j-1) COMBINATION[i][j] = (COMBINATION[i-1][j-1] + COMBINATION[i-1][j]) % MAXSIZE;
+                if(i>j+1) {
+                    COMBINATION[i][j] = (COMBINATION[i-1][j-1] + COMBINATION[i-1][j]) % MAXSIZE;
+                }
                 else break;
             }
         }
@@ -104,9 +112,12 @@ public:
         int lsize, rsize;
         int countLeft = combinationCountHelper(COMBINATION, p->left, lsize), countRight = combinationCountHelper(COMBINATION, p->right, rsize);
         size = lsize + rsize + 1;
-        return (countLeft * countRight) % MAXSIZE * COMBINATION[rsize + lsize][lsize] % MAXSIZE;
+        int ans = (countLeft * countRight) % MAXSIZE * COMBINATION[rsize + lsize][lsize] % MAXSIZE;
+        return ans;
     }
     void KOKUSEN(){
+        if(nodeCount!=q.size()) throw "error";
+        if(nodeCount==0) return;
         int cnt = combinationCount();
         root = removeYNode(root, cnt);
     }
@@ -127,7 +138,6 @@ public:
         if(!cus) throw "pass nullptr" ;
         int ID = cus->result % MAXSIZE + 1;
         table[ID-1].add(cus);
-        // cout << "Gojo " << ID <<" "<<cus->result <<" "<<table[ID-1].nodeCount<<endl;
     }
     void KOKUSEN(){
         for(int i=0;i<MAXSIZE;++i){
